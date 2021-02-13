@@ -1,0 +1,154 @@
+//@version=4
+// Market Cipher (Not_MCB.txt)
+// Overhauled by: Reid Litkauo aka crexalbo
+// February 12, 2021
+study(title="Not MCB (crexalbo)", shorttitle="Not MCB")
+
+//##############################################################################
+// Global Colors
+
+// Zero-Line
+color_zero = #888888
+
+// Bull and Bear
+color_bull = #00FF00
+color_bear = #FF0000
+
+//##############################################################################
+// Global Inputs
+
+// # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+// Lengths
+
+input_n1 = input(  9, "Channel Length" )
+input_n2 = input( 12, "Average Length" )
+
+//##############################################################################
+// OB-OS
+
+// Over-Bought & Over-Sold
+// These are lines/limits we set ourselves
+// to indicate if a coin is being bought or sold TOO much.
+
+
+// # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+// Input
+
+// TODO In the future, maybe we could have more "severity degrees/levels"?
+
+// Over-Bought
+obos_input_ob1 = input( title = "OB-OS: Over-Bought Level", defval = 60 )
+
+// Over-Sold
+obos_input_os1 = input( title = "OB-OS: Over-Sold Level", defval = -60 )
+
+// # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+// Plot
+
+// Let's use a dotted line to plot each of these levels
+plot( obos_input_ob1, color = color_bear, style = 3, title = "Over-Bought Level" )
+plot( obos_input_os1, color = color_bull, style = 3, title = "Over-Sold Level" )
+
+//##############################################################################
+// RSI-MFI
+
+// Relative Strength Index / Money Flow Index
+// A measure of fiat moving into or out of the market.
+
+// # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+// Input
+
+// What moving average function should we use?
+mfi_input_mafn = input( title="RSI-MFI: Moving Average Function", options=["RMA","SMA","EMA","WMA","VWMA"], defval="SMA" )
+
+// How many data points should this moving average use?
+mfi_input_period = input( title = "RSI-MFI: Moving Average Length", defval = 60 )
+
+// Scale the RSI-MFI graph to fit nicely on top of everything else.	
+mfi_input_scale = input( title = "RSI-MFI: Scale of Graph", defval = 190 )
+
+// # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+// Calculate
+
+// Candle value (series)
+// This formula normalizes candles relative to each other.
+// Exact values won't matter, only how erratic / impactful a candle was.
+mfi_candle_value = (close - open) / (high - low)
+
+// Apply the moving average function requested by the inputs to the candle value
+if mfi_input_mafn == "RMA"
+	mfi_candle_value :=  rma(mfi_candle_value, mfi_input_period)
+if mfi_input_mafn == "SMA"
+	mfi_candle_value :=  sma(mfi_candle_value, mfi_input_period)
+if mfi_input_mafn == "EMA"
+	mfi_candle_value :=  ema(mfi_candle_value, mfi_input_period)
+if mfi_input_mafn == "WMA"
+	mfi_candle_value :=  wma(mfi_candle_value, mfi_input_period)
+if mfi_input_mafn == "VWMA"
+	mfi_candle_value := vwma(mfi_candle_value, mfi_input_period)
+
+// # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+// Plot
+
+// Determine what color the graph should be at any one point
+mfi_plot_color = mfi_candle_value > 0 ? color_bull : color_bear
+
+// Plot the RSI-MFI line
+// Scale it using the input so it fits nicely
+// Color it appropriately and make it slightly transparent
+mfi_plot_line = plot( mfi_candle_value * mfi_input_scale, title = "RSI-MFI", color = mfi_plot_color, transp = 35 )
+
+// Fill between the RSI-MFI and the zero line
+fill( mfi_plot_line, plot(0), mfi_plot_color, transp = 50 )
+
+//##############################################################################
+// "Momentum"
+// Trading Center Indicator
+
+// No fucking clue what this is
+// The prefix is "p" because that's what physicists use for momemtum.
+
+// # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+// Input
+
+// Channel Length
+// TODO wtf is this
+p_input_channel = input( title = "Momentum: Channel Length", defval = 9 )
+
+// Average Length
+// TDO wtf is this
+p_input_average = input( title = "Momentum: Average Length", defval = 12 )
+
+
+// HLC3 = (hi + lo + close) / 3
+// EMA Exponential Moving Average
+// ESA Exponential S? Average
+
+esa = ema(hlc3, p_input_channel)
+d = ema( abs(hlc3 - esa), p_input_channel )
+ci = (hlc3 - esa) / (0.015 * d)
+tci = ema(ci, p_input_average)
+
+// weight?
+wt1 = tci
+wt2 = sma(wt1, 3)
+
+
+// # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+// Plot
+
+
+
+
+
+
+
+
+ap = hlc3 
+esa = ema(ap, n1)
+d = ema(abs(ap - esa), n1)
+ci = (ap - esa) / (0.015 * d)
+tci = ema(ci, n2)
+ 
+wt1 = tci
+wt2 = sma(wt1,3)
