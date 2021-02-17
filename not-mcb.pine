@@ -14,14 +14,22 @@ color_zero = #888888
 color_bull = #00FF00
 color_bear = #FF0000
 
+// Momentum
+color_p_leading    = #673AB7A0
+color_p_trailing   = #BFE4FF
+color_p_difference = #FFFF00
+
 //##############################################################################
-// Global Inputs
+// Zero Line
+
+// Simple, just a pronounced line at zero
 
 // # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-// Lengths
+// Plot
 
-input_n1 = input(  9, "Channel Length" )
-input_n2 = input( 12, "Average Length" )
+plot( 0,
+ title = "Zero Line",
+ color = color_zero )
 
 //##############################################################################
 // OB-OS
@@ -29,7 +37,6 @@ input_n2 = input( 12, "Average Length" )
 // Over-Bought & Over-Sold
 // These are lines/limits we set ourselves
 // to indicate if a coin is being bought or sold TOO much.
-
 
 // # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 // Input
@@ -46,8 +53,16 @@ obos_input_os1 = input( title = "OB-OS: Over-Sold Level", defval = -60 )
 // Plot
 
 // Let's use a dotted line to plot each of these levels
-plot( obos_input_ob1, color = color_bear, style = 3, title = "Over-Bought Level" )
-plot( obos_input_os1, color = color_bull, style = 3, title = "Over-Sold Level" )
+
+plot( obos_input_ob1,
+ title = "Over-Bought Level",
+ color = color_bear,
+ style = 3 )
+
+plot( obos_input_os1,
+ title = "Over-Sold Level",
+ color = color_bull,
+ style = 3 )
 
 //##############################################################################
 // RSI-MFI
@@ -96,47 +111,125 @@ mfi_plot_color = mfi_candle_value > 0 ? color_bull : color_bear
 // Plot the RSI-MFI line
 // Scale it using the input so it fits nicely
 // Color it appropriately and make it slightly transparent
-mfi_plot_line = plot( mfi_candle_value * mfi_input_scale, title = "RSI-MFI", color = mfi_plot_color, transp = 35 )
+mfi_plot_line = plot( mfi_candle_value * mfi_input_scale,
+ title = "RSI-MFI",
+ color = mfi_plot_color,
+ transp = 35 )
 
 // Fill between the RSI-MFI and the zero line
-fill( mfi_plot_line, plot(0), mfi_plot_color, transp = 50 )
+fill( mfi_plot_line, plot(0),
+ mfi_plot_color,
+ transp = 50 )
 
 //##############################################################################
-// "Momentum"
-// Trading Center Indicator
+// Wave Trend Indicator
 
-// No fucking clue what this is
-// The prefix is "p" because that's what physicists use for momemtum.
+// Originally written by LazyBear:
+// https://www.tradingview.com/script/2KE8wTuF-Indicator-WaveTrend-Oscillator-WT/
+
+// The prefix is "p" because that's what physicists use for momemtum,
+// which is what this indicator is frequently referred to.
 
 // # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 // Input
 
 // Channel Length
-// TODO wtf is this
+// TODO wtf is this and why is it important
 p_input_channel = input( title = "Momentum: Channel Length", defval = 9 )
 
 // Average Length
-// TDO wtf is this
+// TDO wtf is this and why is it important
 p_input_average = input( title = "Momentum: Average Length", defval = 12 )
 
+// # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+// Calculate
 
-// HLC3 = (hi + lo + close) / 3
-// EMA Exponential Moving Average
-// ESA Exponential S? Average
+// A lot of this explanation is taken from here:
+// https://medium.com/@samuel.mcculloch/lets-take-a-look-at-wavetrend-with-crosses-lazybear-s-indicator-2ece1737f72f
 
-esa = ema(hlc3, p_input_channel)
-d = ema( abs(hlc3 - esa), p_input_channel )
-ci = (hlc3 - esa) / (0.015 * d)
-tci = ema(ci, p_input_average)
+// TODO This entire calculate section is a black box! I MUST UNDERSTAND!
+// I have no idea what this code does or what each variable represents.
+// I've given the variables a prefix to prevent naming collisions, and renamed
+// inputs appropriately, but otherwise the code remains unchanged.
 
-// weight?
-wt1 = tci
-wt2 = sma(wt1, 3)
+// HLC3 = (hi + lo + close) / 3 (native global)
+// EMA  = Exponential Moving Average
+// ESA  = Exponential S? Average
+// D    = ???
+// CI   = ???
+// TCI  = Trading Center Indicator?
+// WT   = Weight?
 
+p_ap = hlc3 
+p_esa = ema(p_ap, p_input_channel)
+p_d = ema(abs(p_ap - p_esa), p_input_channel)
+p_ci = (p_ap - p_esa) / (0.015 * p_d)
+p_tci = ema(p_ci, p_input_average)
+
+p_wt1 = p_tci
+p_wt2 = sma(p_wt1,3)
+
+// wt1 is the lighter trailing wave
+// wt2 is the darker leading wave
 
 // # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 // Plot
 
+// Plot leading, trailing, and difference waves
+
+plot( p_wt1,
+ title = "Trailing Momentum",
+ color = color_p_trailing,
+ style = 4 )
+
+plot( p_wt2,
+ title = "Leading Momentum",
+ color = color_p_leading,
+ style = 4 )
+
+plot( p_wt1 - p_wt2,
+ title  = "Difference Momentum",
+ color  = color_p_difference,
+ style  = 4,
+ transp = 40 )
+
+// Plot crossovers
+// Point out where the leading and trailing momentum graphs intersect.
+
+plotshape( crossover(p_wt1, p_wt2) and obos_input_os1 ? p_wt2 : na,
+ title = "Momentum Crossover (Positive)",
+ color = color_bull,
+ style = shape.cross,
+ location = location.absolute,
+ size = size.tiny,
+ transp = 20 )
+
+plotshape( crossover(p_wt2, p_wt1) and obos_input_os1 ? p_wt1 : na,
+ title = "Momentum Crossover (Negative)",
+ color = color_bear,
+ style = shape.cross,
+ location = location.absolute,
+ size = size.tiny,
+ transp = 20 )
+
+plotshape( crossover(p_wt1, p_wt2) and p_wt2 <= obos_input_os1 ? p_wt2 : na,
+ title = "Momentum Crossover (Positive)",
+ color = color_bull,
+ style = shape.circle,
+ location = location.bottom,
+ size = size.tiny,
+ transp = 20 )
+
+plotshape( crossover(p_wt2, p_wt1) and p_wt1 >= obos_input_ob1 ? p_wt2 : na,
+ title = "Momentum Crossover (Negative)",
+ color = color_bear,
+ style = shape.circle,
+ location = location.top,
+ size = size.tiny,
+ transp = 20 )
+
+//##############################################################################
+// Stochastic Oscillator
 
 
 
@@ -144,11 +237,28 @@ wt2 = sma(wt1, 3)
 
 
 
-ap = hlc3 
-esa = ema(ap, n1)
-d = ema(abs(ap - esa), n1)
-ci = (ap - esa) / (0.015 * d)
-tci = ema(ci, n2)
- 
-wt1 = tci
-wt2 = sma(wt1,3)
+
+
+//soch RSI with divergences
+smoothKw = input(3, minval=1)
+smoothDw = input(3, minval=1)
+lengthRSIw = input(14, minval=1)
+lengthStochw = input(14, minval=1)
+uselogw = input(true, title="Log")
+srcInw = input(close, type=source, title="Source")
+showdivsw = input(true, title="Show Divergences")
+showhiddenw = input(false, title="Show Hidden Divergences")
+showchanw = input(false, title="Show Divergences Channel")
+
+
+srcw = uselogw ? log(srcInw) : srcInw
+rsi1w = rsi(srcw, lengthRSIw)
+kkw = sma(stoch(rsi1w, rsi1w, rsi1w, lengthStochw), smoothKw)
+dw = sma(kkw, smoothDw)
+hmw = input(false, title="Use Average of both K & D")
+kw = hmw ? avg(kkw, dw) : kkw
+
+aw = plot(kkw, color=blue, linewidth=1, transp=0, title="K")
+bw = plot(dw, color=orange, linewidth=1, transp=0, title="D")
+fw = kkw >= dw ? blue : orange
+fill(aw, bw, title="KD Fill", color=white)
