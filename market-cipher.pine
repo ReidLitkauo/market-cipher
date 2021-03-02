@@ -11,13 +11,22 @@ study(title="Not MCB (crexalbo)", shorttitle="Not MCB")
 color_zero = #888888
 
 // Bull and Bear
-color_bull = #00FF00
-color_bear = #FF0000
+color_bull  = #00FF00
+color_bull2 = #00FF80
+color_bear  = #FF0000
+color_bear2 = #FF0080
 
-// Momentum
-color_p_leading    = #673AB7A0
-color_p_trailing   = #BFE4FF
-color_p_difference = #FFFF00
+// Wave Trend
+color_p_wt    = #BFE4FF
+color_p_wtsma = #673AB7A0
+color_p_dif   = #FFFF00
+
+//##############################################################################
+// Helpful Functions
+
+// Identify if the value TWO INDICES AGO was a bullish or bearish fractal.
+bullish_fractal (s) => s[2]<s[4] and s[2]<s[3] and s[2]<s[1] and s[2]<s[0]
+bearish_fractal (s) => s[2]>s[4] and s[2]>s[3] and s[2]>s[1] and s[2]>s[0]
 
 //##############################################################################
 // Zero Line
@@ -27,7 +36,7 @@ color_p_difference = #FFFF00
 // # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 // Plot
 
-plot( 0,
+zero_plot = plot( 0,
  title = "Zero Line",
  color = color_zero )
 
@@ -74,13 +83,17 @@ plot( obos_input_os1,
 // Input
 
 // What moving average function should we use?
-mfi_input_mafn = input( title="RSI-MFI: Moving Average Function", options=["RMA","SMA","EMA","WMA","VWMA"], defval="SMA" )
+mfi_input_mafn = input( title="RSI-MFI: Moving Average Function",
+ options=["RMA","SMA","EMA","WMA","VWMA"],
+ defval="SMA" )
 
 // How many data points should this moving average use?
-mfi_input_period = input( title = "RSI-MFI: Moving Average Length", defval = 60 )
+mfi_input_period = input( title = "RSI-MFI: Moving Average Length",
+ defval = 60 )
 
 // Scale the RSI-MFI graph to fit nicely on top of everything else.	
-mfi_input_scale = input( title = "RSI-MFI: Scale of Graph", defval = 190 )
+mfi_input_scale = input( title = "RSI-MFI: Scale of Graph",
+ defval = 190 )
 
 // # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 // Calculate
@@ -90,7 +103,7 @@ mfi_input_scale = input( title = "RSI-MFI: Scale of Graph", defval = 190 )
 // Exact values won't matter, only how erratic / impactful a candle was.
 mfi_candle_value = (close - open) / (high - low)
 
-// Apply the moving average function requested by the inputs to the candle value
+// Apply the MA function requested by the inputs to the candle value
 if mfi_input_mafn == "RMA"
 	mfi_candle_value :=  rma(mfi_candle_value, mfi_input_period)
 if mfi_input_mafn == "SMA"
@@ -117,7 +130,7 @@ mfi_plot_line = plot( mfi_candle_value * mfi_input_scale,
  transp = 35 )
 
 // Fill between the RSI-MFI and the zero line
-fill( mfi_plot_line, plot(0),
+fill( mfi_plot_line, zero_plot,
  mfi_plot_color,
  transp = 50 )
 
@@ -144,84 +157,69 @@ p_input_average = input( title = "Momentum: Average Length", defval = 12 )
 // # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 // Calculate
 
-// A lot of this explanation is taken from here:
+// I found this explanation, not sure if it's useful.
 // https://medium.com/@samuel.mcculloch/lets-take-a-look-at-wavetrend-with-crosses-lazybear-s-indicator-2ece1737f72f
 
-// TODO This entire calculate section is a black box! I MUST UNDERSTAND!
-// I have no idea what this code does or what each variable represents.
-// I've given the variables a prefix to prevent naming collisions, and renamed
-// inputs appropriately, but otherwise the code remains unchanged.
+// EMA of HLC3, used multiple times
+p_hlc3ema = ema(hlc3, p_input_channel)
 
-// HLC3 = (hi + lo + close) / 3 (native global)
-// EMA  = Exponential Moving Average
-// ESA  = Exponential S? Average
-// D    = ???
-// CI   = ???
-// TCI  = Trading Center Indicator?
-// WT   = Weight?
+// Wave Trend formula
+p_wt = ema( (hlc3 - p_hlc3ema) / (0.015 * ema(abs(hlc3 - p_hlc3ema), p_input_channel)), p_input_average )
 
-p_ap = hlc3 
-p_esa = ema(p_ap, p_input_channel)
-p_d = ema(abs(p_ap - p_esa), p_input_channel)
-p_ci = (p_ap - p_esa) / (0.015 * p_d)
-p_tci = ema(p_ci, p_input_average)
+// SMA of Wave Trend, which lags behind the WT
+p_wtsma = sma(p_wt, 3)
 
-p_wt1 = p_tci
-p_wt2 = sma(p_wt1,3)
-
-// wt1 is the lighter trailing wave
-// wt2 is the darker leading wave
+// Difference between Wave Trend and its lagging SMA
+p_wtdif = p_wt - p_wtsma
 
 // # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 // Plot
 
-// Plot leading, trailing, and difference waves
-
-plot( p_wt1,
- title = "Trailing Momentum",
- color = color_p_trailing,
+plot( p_wt,
+ title = "WaveTrend",
+ color = color_p_wt,
  style = 4 )
 
-plot( p_wt2,
- title = "Leading Momentum",
- color = color_p_leading,
+plot( p_wtsma,
+ title = "WaveTrend SMA",
+ color = color_p_wtsma,
  style = 4 )
 
-plot( p_wt1 - p_wt2,
- title  = "Difference Momentum",
- color  = color_p_difference,
+plot( p_wtdif,
+ title  = "WaveTrend Difference",
+ color  = color_p_dif,
  style  = 4,
  transp = 40 )
 
 // Plot crossovers
 // Point out where the leading and trailing momentum graphs intersect.
 
-plotshape( crossover(p_wt1, p_wt2) and obos_input_os1 ? p_wt2 : na,
- title = "Momentum Crossover (Positive)",
+plotshape( crossover(p_wt, p_wtsma) and obos_input_os1 ? p_wtsma : na,
+ title = "WaveTrend Crossover (Positive)",
  color = color_bull,
  style = shape.cross,
  location = location.absolute,
  size = size.tiny,
  transp = 20 )
 
-plotshape( crossover(p_wt2, p_wt1) and obos_input_os1 ? p_wt1 : na,
- title = "Momentum Crossover (Negative)",
+plotshape( crossover(p_wtsma, p_wt) and obos_input_os1 ? p_wt : na,
+ title = "WaveTrend Crossover (Negative)",
  color = color_bear,
  style = shape.cross,
  location = location.absolute,
  size = size.tiny,
  transp = 20 )
 
-plotshape( crossover(p_wt1, p_wt2) and p_wt2 <= obos_input_os1 ? p_wt2 : na,
- title = "Momentum Crossover (Positive)",
+plotshape( crossover(p_wt, p_wtsma) and p_wtsma <= obos_input_os1 ? p_wtsma : na,
+ title = "WaveTrend Crossover (Positive)",
  color = color_bull,
  style = shape.circle,
  location = location.bottom,
  size = size.tiny,
  transp = 20 )
 
-plotshape( crossover(p_wt2, p_wt1) and p_wt1 >= obos_input_ob1 ? p_wt2 : na,
- title = "Momentum Crossover (Negative)",
+plotshape( crossover(p_wtsma, p_wt) and p_wt >= obos_input_ob1 ? p_wtsma : na,
+ title = "WaveTrend Crossover (Negative)",
  color = color_bear,
  style = shape.circle,
  location = location.top,
@@ -229,36 +227,103 @@ plotshape( crossover(p_wt2, p_wt1) and p_wt1 >= obos_input_ob1 ? p_wt2 : na,
  transp = 20 )
 
 //##############################################################################
-// Stochastic Oscillator
+// Wave Trend Divergence
 
+// I haven't yet been able to locate the source of this script.
+// Then again, I haven't yet really tried looking.
+// Meh.
 
+// # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+// Calculate
 
+// Note when WT is above/below its own SMA
+pd_wtabovesma = (p_wt >= p_wtsma)
+pd_wtbelowsma = (p_wt <= p_wtsma)
 
+// Ideitify WT bullish and bearish fractals
+// Store the value of the WT at that fractal when found
+// These will be filled with "na" for all non-fractal candles
+pd_wtfracbear = bearish_fractal(p_wt) and p_wt[2] ? p_wt[2] : na
+pd_wtfracbull = bullish_fractal(p_wt) and p_wt[2] ? p_wt[2] : na
 
+// Identify WT value & candle value at most recent fractal locations
+pd_wthi_prev = valuewhen(pd_wtfracbear,    p_wt, 0)[2]
+pd_wthi_cndl = valuewhen(pd_wtfracbear, high[2], 0)[2]
+pd_wtlo_prev = valuewhen(pd_wtfracbull,    p_wt, 0)[2]
+pd_wtlo_cndl = valuewhen(pd_wtfracbull,  low[2], 0)[2]
 
+// Identify divergences
+pd_wtbeardiv = pd_wtfracbear and high[2] > pd_wthi_cndl and p_wt[2] < pd_wthi_prev
+pd_wtbulldiv = pd_wtfracbull and  low[2] < pd_wtlo_cndl and p_wt[2] > pd_wtlo_prev
 
+// IDENTIFY SIGNALS
+sig_bear_pd = pd_wtbeardiv and pd_wtbelowsma
+sig_bull_pd = pd_wtbulldiv and pd_wtabovesma
 
+// # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+// Plot
 
-//soch RSI with divergences
-smoothKw = input(3, minval=1)
-smoothDw = input(3, minval=1)
-lengthRSIw = input(14, minval=1)
-lengthStochw = input(14, minval=1)
-uselogw = input(true, title="Log")
-srcInw = input(close, type=source, title="Source")
-showdivsw = input(true, title="Show Divergences")
-showhiddenw = input(false, title="Show Hidden Divergences")
-showchanw = input(false, title="Show Divergences Channel")
+// Only plot when the signal is active!
 
+plot( pd_wtfracbull ? p_wt[2] : na,
+ title = 'WaveTrend Bullish Divergence',
+ color = sig_bull_pd ? color_bull : na,
+ linewidth = 5,
+ transp = 60 )
 
-srcw = uselogw ? log(srcInw) : srcInw
-rsi1w = rsi(srcw, lengthRSIw)
-kkw = sma(stoch(rsi1w, rsi1w, rsi1w, lengthStochw), smoothKw)
-dw = sma(kkw, smoothDw)
-hmw = input(false, title="Use Average of both K & D")
-kw = hmw ? avg(kkw, dw) : kkw
+plot( pd_wtfracbear ? p_wt[2] : na,
+ title = 'WaveTrend Bearish Divergence',
+ color = sig_bear_pd ? color_bear : na,
+ linewidth = 5,
+ transp = 60 )
 
-aw = plot(kkw, color=blue, linewidth=1, transp=0, title="K")
-bw = plot(dw, color=orange, linewidth=1, transp=0, title="D")
-fw = kkw >= dw ? blue : orange
-fill(aw, bw, title="KD Fill", color=white)
+//##############################################################################
+// Wave Trend SMA Divergence
+
+// Literally the exact same thing as above
+// Just did a text replace of pd_ => pda_ for the variable names
+// and used p_wtsma instead of p_wt
+
+// # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+// Calculate
+
+// Note when WT is above/below its own SMA
+pda_wtabovesma = (p_wt >= p_wtsma)
+pda_wtbelowsma = (p_wt <= p_wtsma)
+
+// Ideitify WT bullish and bearish fractals
+// Store the value of the WT at that fractal when found
+// These will be filled with "na" for all non-fractal candles
+pda_wtfracbear = bearish_fractal(p_wtsma) and p_wtsma[2] ? p_wtsma[2] : na
+pda_wtfracbull = bullish_fractal(p_wtsma) and p_wtsma[2] ? p_wtsma[2] : na
+
+// Identify WT value & candle value at most recent fractal locations
+pda_wthi_prev = valuewhen(pda_wtfracbear, p_wtsma, 0)[2]
+pda_wthi_cndl = valuewhen(pda_wtfracbear, high[2], 0)[2]
+pda_wtlo_prev = valuewhen(pda_wtfracbull, p_wtsma, 0)[2]
+pda_wtlo_cndl = valuewhen(pda_wtfracbull,  low[2], 0)[2]
+
+// Identify divergences
+pda_wtbeardiv = pda_wtfracbear and high[2] > pda_wthi_cndl and p_wtsma[2] < pda_wthi_prev
+pda_wtbulldiv = pda_wtfracbull and  low[2] < pda_wtlo_cndl and p_wtsma[2] > pda_wtlo_prev
+
+// IDENTIFY SIGNALS
+sig_bear_pda = pda_wtbeardiv and pda_wtbelowsma
+sig_bull_pda = pda_wtbulldiv and pda_wtabovesma
+
+// # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+// Plot
+
+// Only plot when the signal is active!
+
+plot( pda_wtfracbull ? p_wtsma[2] : na,
+ title = 'WaveTrend Bullish Divergence',
+ color = sig_bull_pda ? color_bull2 : na,
+ linewidth = 5,
+ transp = 60 )
+
+plot( pda_wtfracbear ? p_wtsma[2] : na,
+ title = 'WaveTrend Bearish Divergence',
+ color = sig_bear_pda ? color_bear2 : na,
+ linewidth = 5,
+ transp = 60 )
